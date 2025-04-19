@@ -63,33 +63,46 @@ document.addEventListener('DOMContentLoaded', async function() {
             showAlert('Erro ao conectar com o banco de dados', 'danger');
         }
 
-        // Registrar Service Worker
         if ('serviceWorker' in navigator) {
-            try {
-                const registration = await navigator.serviceWorker.register('/sw.js', {
-                    scope: '/'
-                });
-
-                showAlert('Service2 Worker registrado com sucesso', 'success');
-
-                navigator.serviceWorker.addEventListener('message', event => {
-                    if (event.data.type === 'GET_PROJECTS') {
-                        event.ports[0].postMessage(getProjects());
-                    }
-                });
-
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'activated') {
-                            showAlert('Nova versão disponível! Atualizando...', 'info');
-                            setTimeout(() => window.location.reload(), 1500);
-                        }
-                    });
-                });
-            } catch (error) {
-                showAlert(`Falha ao registrar Service Worker: ${error.message}`, 'danger');
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        showAlert('Service Worker registrado com sucesso!', 'success');
+        
+        // Verifique se há atualizações
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              showAlert('Nova versão disponível! Atualizando...', 'info');
+              setTimeout(() => window.location.reload(), 1500);
             }
+          });
+        });
+      })
+      .catch(error => {
+        showAlert(`Falha no registro do Service Worker: ${error.message}`, 'danger');
+        
+        // Debug detalhado com feedback visual
+        fetch('/sw.js')
+          .then(res => {
+            if (!res.ok) {
+              showAlert(`Arquivo SW não encontrado (status: ${res.status})`, 'danger');
+              return;
+            }
+            return res.text().then(text => {
+              if (!text.includes('CACHE_NAME')) {
+                showAlert('Conteúdo do SW parece inválido', 'warning');
+              }
+            });
+          })
+          .catch(err => {
+            showAlert(`Não foi possível carregar o SW: ${err.message}`, 'danger');
+          });
+      });
+  });
+} else {
+  showAlert('Seu navegador não suporta Service Workers', 'warning');
         }
 
         loadProjects();
